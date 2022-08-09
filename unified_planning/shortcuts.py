@@ -406,7 +406,7 @@ def AnytimePlanner(
     *,
     name: Optional[str] = None,
     params: Dict[str, str] = None,
-    problem_kind: ProblemKind = ProblemKind()
+    problem_kind: ProblemKind = ProblemKind(),
 ) -> Engine:
     """
     Returns a anytime planner. There are two ways to call this method:
