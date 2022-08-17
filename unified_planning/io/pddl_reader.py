@@ -696,6 +696,8 @@ class PDDLReader:
         if object_type_needed:
             obj_type = self._env.type_manager.UserType("object", None)
             types_map["object"] = obj_type
+        else:
+            types_map["object"] = None
         universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
         for types_list in domain_res.get("types", []):
             # types_list is a List of 1 or 2 elements, where the first one
@@ -712,12 +714,6 @@ class PDDLReader:
                 types_map[type_name] = self._env.type_manager.UserType(
                     type_name, father
                 )
-        if (
-            object_type_needed and "object" not in types_map
-        ):  # The object type is needed, but has not been defined
-            types_map["object"] = self._env.type_manager.UserType(
-                "object", None
-            )  # We manually define it.
 
         has_actions_cost = False
 
