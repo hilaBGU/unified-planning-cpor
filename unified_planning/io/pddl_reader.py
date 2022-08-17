@@ -696,8 +696,7 @@ class PDDLReader:
         if object_type_needed:
             obj_type = self._env.type_manager.UserType("object", None)
             types_map["object"] = obj_type
-        else:
-            types_map["object"] = None
+
         universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
         for types_list in domain_res.get("types", []):
             # types_list is a List of 1 or 2 elements, where the first one
@@ -705,7 +704,10 @@ class PDDLReader:
             # if they have one.
             father: typing.Optional["up.model.Type"] = obj_type
             if len(types_list) == 2:  # the types have a father
-                father = types_map[types_list[1]]
+                if types_list[1] == "object" and not object_type_needed:
+                    father = None
+                else:
+                    father = types_map[types_list[1]]
             else:
                 assert (
                     len(types_list) == 1
