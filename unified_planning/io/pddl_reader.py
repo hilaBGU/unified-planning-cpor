@@ -46,7 +46,7 @@ class PDDLGrammar:
             + ":requirements"
             + OneOrMore(
                 one_of(
-                    ":strips :typing :negative-preconditions :disjunctive-preconditions :equality :existential-preconditions :universal-preconditions :quantified-preconditions :conditional-effects :fluents :numeric-fluents :adl :durative-actions :duration-inequalities :timed-initial-literals :action-costs :hierarchy"
+                    ":strips :typing :negative-preconditions :disjunctive-preconditions :equality :existential-preconditions :universal-preconditions :quantified-preconditions :conditional-effects :fluents :numeric-fluents :adl :durative-actions :duration-inequalities :timed-initial-literals :action-costs :hierarchy :contingent"
                 )
             )
             + Suppress(")")
@@ -114,6 +114,7 @@ class PDDLGrammar:
             + Suppress(")")
             + Optional(":precondition" + nestedExpr().setResultsName("pre"))
             + Optional(":effect" + nestedExpr().setResultsName("eff"))
+            + Optional(":observe" + nestedExpr().setResultsName("obs"))
             + Suppress(")")
         )
 
@@ -675,6 +676,12 @@ class PDDLReader:
                 self._env,
                 initial_defaults={self._tm.BoolType(): self._em.FALSE()},
             )
+        elif ":contingent" in set(domain_res.get("features", [])):
+            problem = up.model.ContingentProblem(
+                domain_res["name"],
+                self._env,
+                initial_defaults={self._tm.BoolType(): self._em.FALSE()},
+            )
         else:
             problem = up.model.Problem(
                 domain_res["name"],
@@ -684,22 +691,18 @@ class PDDLReader:
 
         types_map: Dict[str, "up.model.Type"] = {}
         object_type_needed: bool = self._check_if_object_type_is_needed(domain_res)
+        obj_type = None
+        if object_type_needed:
+            obj_type = self._env.type_manager.UserType("object", None)
+            types_map["object"] = obj_type
         universal_assignments: Dict["up.model.Action", List[ParseResults]] = {}
         for types_list in domain_res.get("types", []):
             # types_list is a List of 1 or 2 elements, where the first one
             # is a List of types, and the second one can be their father,
             # if they have one.
-            father: typing.Optional["up.model.Type"] = None
+            father: typing.Optional["up.model.Type"] = obj_type
             if len(types_list) == 2:  # the types have a father
-                if types_list[1] != "object":  # the father is not object
-                    father = types_map[types_list[1]]
-                elif object_type_needed:  # the father is object, and object is needed
-                    object_type = types_map.get("object", None)
-                    if object_type is None:  # the type object is not defined
-                        father = self._env.type_manager.UserType("object", None)
-                        types_map["object"] = father
-                    else:
-                        father = object_type
+                father = types_map[types_list[1]]
             else:
                 assert (
                     len(types_list) == 1
@@ -813,7 +816,19 @@ class PDDLReader:
                     dur_act
                 )
             else:
-                act = up.model.InstantaneousAction(n, a_params, self._env)
+                if "obs" in a:
+                    act = up.model.SensingAction(n, a_params, self._env)
+                    if a["obs"][0][0] == "and":
+                        for o in a["obs"][0][1:]:
+                            act.add_observed_fluent(
+                                self._parse_exp(problem, act, types_map, {}, o)
+                            )
+                    else:
+                        act.add_observed_fluent(
+                            self._parse_exp(problem, act, types_map, {}, a["obs"][0])
+                        )
+                else:
+                    act = up.model.InstantaneousAction(n, a_params, self._env)
                 if "pre" in a:
                     act.add_precondition(
                         self._parse_exp(problem, act, types_map, {}, a["pre"][0])
@@ -929,7 +944,10 @@ class PDDLReader:
                         "Constraints not supported in the initial task network"
                     )
 
-            for i in problem_res.get("init", []):
+            init_lst = problem_res.get("init", [])
+            if len(init_lst) == 1 and init_lst[0][0] == "and":
+                init_lst = init_lst[0][1:]
+            for i in init_lst:
                 if i[0] == "=":
                     problem.set_initial_value(
                         self._parse_exp(problem, None, types_map, {}, i[1]),
@@ -948,6 +966,23 @@ class PDDLReader:
                         problem.add_timed_effect(ti, va.arg(0), va.arg(1))
                     else:
                         raise SyntaxError(f"Not able to handle this TIL {i}")
+                elif i[0] == "oneof":
+                    fluents = [
+                        self._parse_exp(problem, None, types_map, {}, x) for x in i[1:]
+                    ]
+                    problem.add_oneof_initial_constraint(fluents)
+                elif i[0] == "or":
+                    fluents = [
+                        self._parse_exp(problem, None, types_map, {}, x) for x in i[1:]
+                    ]
+                    problem.add_or_initial_constraint(fluents)
+                elif i[0] == "unknown":
+                    if len(i) != 2:
+                        raise SyntaxError(
+                            "`unknown` constraint requires exactly one argument."
+                        )
+                    arg = self._parse_exp(problem, None, types_map, {}, i[1])
+                    problem.add_unknown_initial_constraint(arg)
                 else:
                     problem.set_initial_value(
                         self._parse_exp(problem, None, types_map, {}, i),
