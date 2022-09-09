@@ -1,10 +1,9 @@
-"""GRPC Client for Unified Planning"""
+"""GRPC Server-Client Interface for Unified Planning"""
 
 import socket
 import threading
-from typing import IO, Callable, Optional
+from typing import IO, Callable, Dict, Optional, Set, Tuple, Type
 
-import grpc
 import unified_planning as up
 import unified_planning.engines.mixins as mixins
 import unified_planning.grpc.generated.unified_planning_pb2 as proto
@@ -12,15 +11,16 @@ import unified_planning.grpc.generated.unified_planning_pb2_grpc as grpc_api
 from unified_planning import engines
 from unified_planning.engines.results import PlanGenerationResultStatus
 from unified_planning.exceptions import UPException
-from unified_planning.grpc.proto_reader import ProtobufReader
-from unified_planning.grpc.proto_writer import ProtobufWriter
+from unified_planning.grpc import ProtobufReader, ProtobufWriter
+
+import grpc
 
 
 class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
     """Represents the GRPC interface that must be implemented by the planner"""
 
-    _instances = {}
-    _ports = set()
+    _instances: Dict[Tuple[Optional[int], Type["GRPCPlanner"]], "GRPCPlanner"]
+    _ports: Set[int]
     _lock = threading.Lock()
 
     def __init__(
@@ -29,7 +29,7 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
         port: Optional[int] = None,
         override: bool = False,
         timeout: Optional[float] = 0.5,
-    ):
+    ) -> None:
         """GRPC Planner Definition
 
         :param host: Host address, defaults to "localhost"
@@ -65,7 +65,7 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
 
         self._planner = grpc_api.UnifiedPlanningStub(self._channel)
 
-    def __new__(cls, **kwargs):
+    def __new__(cls, **kwargs) -> "GRPCPlanner":
         """Create a thread-safe singleton instance of the planner
 
         Modes:
@@ -86,7 +86,7 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
             return super().__new__(cls)
         return cls._instances[(port, cls)]
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Delete the planner instance"""
         self._channel.close()
 
@@ -135,6 +135,8 @@ class GRPCPlanner(engines.engine.Engine, mixins.OneshotPlannerMixin):
                 callback(response)
             else:
                 return response
+
+        raise UPException("No response from the server")
 
     def _grpc_server_on(self, channel) -> bool:
         """Check if the grpc server is available
