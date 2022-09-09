@@ -11,7 +11,8 @@ import unified_planning.grpc.generated.unified_planning_pb2_grpc as grpc_api
 from unified_planning import engines
 from unified_planning.engines.results import PlanGenerationResultStatus
 from unified_planning.exceptions import UPException
-from unified_planning.grpc import ProtobufReader, ProtobufWriter
+from unified_planning.grpc.proto_reader import ProtobufReader  # type: ignore[attr-defined]
+from unified_planning.grpc.proto_writer import ProtobufWriter  # type: ignore[attr-defined]
 
 import grpc
 
