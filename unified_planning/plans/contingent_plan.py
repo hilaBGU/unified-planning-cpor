@@ -24,54 +24,36 @@ class ContingentPlanNode:
     def __init__(
         self,
         action_instance: "plans.plan.ActionInstance",
-        observation: Optional[
-            Dict["up.model.fnode.FNode", "up.model.fnode.FNode"]
-        ] = None,
+        singleChild: Optional["ContingentPlanNode"] = None,
+        trueObservationChild: Optional["ContingentPlanNode"] = None,
+        falseObservationChild: Optional["ContingentPlanNode"] = None
     ):
         self.action_instance = action_instance
-        self.observation = observation
-        self.children: List["ContingentPlanNode"] = []
+        self.singleChild = singleChild
+        self.trueObservationChild = trueObservationChild
+        self.falseObservationChild = falseObservationChild
 
-    def add_child(self, obj: "ContingentPlanNode"):
+    def add_singleChild(self, obj: "ContingentPlanNode"):
         """Adds the given `ContingentPlanNode` as a new child."""
-        self.children.append(obj)
+        self.singleChild = obj
 
-    def replace_action_instances(
-        self,
-        replace_function: Callable[
-            ["plans.plan.ActionInstance"], Optional["plans.plan.ActionInstance"]
-        ],
-    ) -> List["ContingentPlanNode"]:
-        """
-        This method takes a function from `ActionInstance` to `ActionInstance`.
-        If the returned `ActionInstance` is `None` it means that the `ActionInstance` should be removed.
+    def add_trueObservationChild(self, obj: "ContingentPlanNode"):
+        """Adds the given `ContingentPlanNode` as a new child."""
+        self.TrueObservationChild = obj
 
-        This method applies the given function to all the `ActionInstance` of the node
-        and returns an equivalent list of new `ContingentPlanNode`s.
-
-        :param replace_function: The function from `ActionInstance` to `ActionInstance`.
-        :return: The new list of `ContingentPlanNode`s in which every `ActionInstance` is modified by the given `replace_function`.
-        """
-        children: List["ContingentPlanNode"] = []
-        for c in self.children:
-            for child in c.replace_action_instances(replace_function):
-                children.append(child)
-        ai = replace_function(self.action_instance)
-        if ai is not None:
-            res = ContingentPlanNode(ai, self.observation)
-            for child in children:
-                res.add_child(child)
-            return [res]
-        else:
-            return children
+    def add_falseObservationChild(self, obj: "ContingentPlanNode"):
+        """Adds the given `ContingentPlanNode` as a new child."""
+        self.FalseObservationChild = obj
 
     def __eq__(self, oth: object) -> bool:
         if isinstance(oth, ContingentPlanNode):
             if not self.action_instance.is_semantically_equivalent(oth.action_instance):
                 return False
-            if not self.observation == oth.observation:
+            if not self.trueObservationChild == oth.trueObservationChild:
                 return False
-            if not self.children == oth.children:
+            if not self.falseObservationChild == oth.falseObservationChild:
+                return False
+            if not self.singleChild == oth.singleChild:
                 return False
             return True
         else:
@@ -82,23 +64,16 @@ class ContingentPlanNode:
         count += hash(self.action_instance.action) + hash(
             self.action_instance.actual_parameters
         )
-        if self.observation is not None:
-            for k, v in self.observation.items():
-                count += hash(k) + hash(v)
-        for c in self.children:
-            count += hash(c)
+        if self.singleChild is not None:
+            count += hash(self.singleChild)
+        if self.trueObservationChild is not None:
+            count += hash(self.trueObservationChild)
+        if self.falseObservationChild is not None:
+            count += hash(self.falseObservationChild)
         return count
 
     def __contains__(self, item: object) -> bool:
-        if isinstance(item, plans.plan.ActionInstance):
-            if item.is_semantically_equivalent(self.action_instance):
-                return True
-            for c in self.children:
-                if item in c:
-                    return True
-            return False
-        else:
-            return False
+        raise NotImplementedError('Method not implemented!')
 
 
 class ContingentPlan(plans.plan.Plan):

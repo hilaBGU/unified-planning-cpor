@@ -72,6 +72,10 @@ def XOr(*args: Union[BoolExpression, Iterable[BoolExpression]]) -> FNode:
     return get_env().expression_manager.XOr(*args)
 
 
+def XOr(*args: Union[BoolExpression, Iterable[BoolExpression]]) -> FNode:
+    return get_env().expression_manager.XOr(*args)
+
+
 def Not(expression: BoolExpression) -> FNode:
     """
     Creates an expression of the form:
