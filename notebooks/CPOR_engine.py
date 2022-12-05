@@ -1,20 +1,18 @@
-from unified_planning.io import PDDLReader
 from unified_planning.model import FNode, OperatorKind, Fluent, Effect, SensingAction
 from unified_planning.engines import Credits
+from unified_planning.plans import ActionInstance, ContingentPlan, ContingentPlanNode
+from unified_planning.io import PDDLReader
+from unified_planning.model import FNode, OperatorKind, Fluent, Effect, SensingAction
+import unified_planning.engines as engines
 import unified_planning.environment as environment
 from unified_planning.plans import ActionInstance, ContingentPlan, ContingentPlanNode
-
+from unified_planning.engines.mixins.compiler import CompilationKind
 import unified_planning as up
-import unified_planning.engines.mixins as mixins
 from unified_planning.model import ProblemKind
-from unified_planning.engines.engine import Engine
-from unified_planning.engines.meta_engine import MetaEngine
 from unified_planning.engines.results import (
     PlanGenerationResultStatus,
     PlanGenerationResult,
 )
-from unified_planning.engines.mixins.oneshot_planner import OptimalityGuarantee
-from typing import Type
 
 import clr
 clr.AddReference('CPORLib')
@@ -33,28 +31,22 @@ def print_plan(p_planNode, moves):
     return moves
 
 
-class CPORImpl(MetaEngine, mixins.OneshotPlannerMixin):
-
-    def __init__(self, *args, **kwargs):
-        MetaEngine.__init__(self, *args, **kwargs)
-        mixins.OneshotPlannerMixin.__init__(self)
+class CPORImpl(engines.Engine):
+    def __init__(self, bOnline = False, **options):
+        self.bOnline = bOnline
+        self._skip_checks = False
 
     @property
     def name(self) -> str:
-        return f"CPORPlanning[{self.engine.name}]"
+        return "CPORPlanning"
 
     @staticmethod
-    def satisfies(optimality_guarantee: OptimalityGuarantee) -> bool:
-        if optimality_guarantee == OptimalityGuarantee.SATISFICING:
-            return True
-        return False
+    def supports_compilation(compilation_kind: CompilationKind) -> bool:
+        return compilation_kind == CompilationKind.GROUNDING
 
     @staticmethod
-    def is_compatible_engine(engine: Type[Engine]) -> bool:
-        return engine.is_oneshot_planner() and engine.supports(ProblemKind({"ACTION_BASED"}))  # type: ignore
-
-    @staticmethod
-    def _supported_kind(engine: Type[Engine]) -> "ProblemKind":
+    def supported_kind():
+        # Ask what more need to be added
         supported_kind = ProblemKind()
         supported_kind.set_problem_class('CONTINGENT')
         supported_kind.set_problem_class("ACTION_BASED")
@@ -62,17 +54,15 @@ class CPORImpl(MetaEngine, mixins.OneshotPlannerMixin):
         supported_kind.set_effects_kind("CONDITIONAL_EFFECTS")
         supported_kind.set_typing('FLAT_TYPING')
         supported_kind.set_typing('HIERARCHICAL_TYPING')
-        final_supported_kind = supported_kind.intersection(engine.supported_kind())
-        final_supported_kind.set_quality_metrics("OVERSUBSCRIPTION")
-        return final_supported_kind
+        return supported_kind
 
     @staticmethod
-    def _supports(problem_kind: "ProblemKind", engine: Type[Engine]) -> bool:
-        return problem_kind <= CPORImpl._supported_kind(engine)
+    def supports(problem_kind):
+        return problem_kind <= CPORImpl.supported_kind()
 
     def solve(self, problem: 'up.model.ContingentProblem') -> 'up.engines.results.PlanGenerationResult':
 
-        if not self._supports(problem.kind, self.engine):
+        if not self.supports(problem.kind):
             return PlanGenerationResult(PlanGenerationResultStatus.UNSOLVABLE_PROVEN, None, self.name)
 
         c_domain = self.__createDomain(problem)
@@ -264,8 +254,9 @@ class CPORImpl(MetaEngine, mixins.OneshotPlannerMixin):
             return obresv
         return None
 
+
 env = environment.get_env()
-env.factory.add_meta_engine('CPORPlanning', __name__, 'CPORImpl')
+env.factory.add_engine('CPORPlanning', __name__, 'CPORImpl')
 
 # Creating a PDDL reader
 reader = PDDLReader()
@@ -286,8 +277,14 @@ problem2 = reader.parse_problem(
     "../unified_planning/test/pddl/localize/problem.pddl",
 )
 
-with env.factory.OneshotPlanner(name='CPORPlanning[pyperplan]') as planner:
+with env.factory.Replanner(problem1, name='CPORPlanning') as planner:
     result = planner.solve(problem1)
+    if result.status == PlanGenerationResultStatus.SOLVED_SATISFICING:
+        print(f'{planner.name} found a valid plan!')
+        print(f'The plan is: {print_plan(result.plan.root_node, [])}')
+    else:
+        print('No plan found!')
+    result = planner.solve(problem2)
     if result.status == PlanGenerationResultStatus.SOLVED_SATISFICING:
         print(f'{planner.name} found a valid plan!')
         print(f'The plan is: {print_plan(result.plan.root_node, [])}')
