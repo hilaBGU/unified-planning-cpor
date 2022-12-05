@@ -50,6 +50,8 @@ class Parallel(
         engines: List[Tuple[str, Dict[str, str]]],
     ):
         up.engines.engine.Engine.__init__(self)
+        up.engines.mixins.OneshotPlannerMixin.__init__(self)
+        up.engines.mixins.PlanValidatorMixin.__init__(self)
         # Since the parallel is always called by name, the errors become warnings by default
         self.error_on_failed_checks = False
         self.engines = engines
@@ -124,6 +126,9 @@ class Parallel(
         problem: "up.model.AbstractProblem",
         callback: Optional[
             Callable[["up.engines.results.PlanGenerationResult"], None]
+        ] = None,
+        heuristic: Optional[
+            Callable[["up.model.state.ROState"], Optional[float]]
         ] = None,
         timeout: Optional[float] = None,
         output_stream: Optional[IO[str]] = None,

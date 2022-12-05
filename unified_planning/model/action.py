@@ -38,8 +38,8 @@ class Action:
     def __init__(
         self,
         _name: str,
-        _parameters: "OrderedDict[str, up.model.types.Type]" = None,
-        _env: Environment = None,
+        _parameters: Optional["OrderedDict[str, up.model.types.Type]"] = None,
+        _env: Optional[Environment] = None,
         **kwargs: "up.model.types.Type",
     ):
         self._env = get_env(_env)
@@ -110,8 +110,8 @@ class InstantaneousAction(Action):
     def __init__(
         self,
         _name: str,
-        _parameters: "OrderedDict[str, up.model.types.Type]" = None,
-        _env: Environment = None,
+        _parameters: Optional["OrderedDict[str, up.model.types.Type]"] = None,
+        _env: Optional[Environment] = None,
         **kwargs: "up.model.types.Type",
     ):
         Action.__init__(self, _name, _parameters, _env, **kwargs)
@@ -177,9 +177,9 @@ class InstantaneousAction(Action):
         return res
 
     def clone(self):
-        new_params = {}
-        for param_name, param in self._parameters.items():
-            new_params[param_name] = param.type
+        new_params = OrderedDict(
+            (param_name, param.type) for param_name, param in self._parameters.items()
+        )
         new_instantaneous_action = InstantaneousAction(
             self._name, new_params, self._env
         )
@@ -414,8 +414,8 @@ class DurativeAction(Action):
     def __init__(
         self,
         _name: str,
-        _parameters: "OrderedDict[str, up.model.types.Type]" = None,
-        _env: Environment = None,
+        _parameters: Optional["OrderedDict[str, up.model.types.Type]"] = None,
+        _env: Optional[Environment] = None,
         **kwargs: "up.model.types.Type",
     ):
         Action.__init__(self, _name, _parameters, _env, **kwargs)
@@ -524,9 +524,9 @@ class DurativeAction(Action):
         return res
 
     def clone(self):
-        new_params = {
-            param_name: param.type for param_name, param in self._parameters.items()
-        }
+        new_params = OrderedDict(
+            (param_name, param.type) for param_name, param in self._parameters.items()
+        )
         new_durative_action = DurativeAction(self._name, new_params, self._env)
         new_durative_action._duration = self._duration
         new_durative_action._conditions = {
@@ -934,8 +934,8 @@ class SensingAction(InstantaneousAction):
     def __init__(
         self,
         _name: str,
-        _parameters: "OrderedDict[str, up.model.types.Type]" = None,
-        _env: Environment = None,
+        _parameters: Optional["OrderedDict[str, up.model.types.Type]"] = None,
+        _env: Optional[Environment] = None,
         **kwargs: "up.model.types.Type",
     ):
         InstantaneousAction.__init__(self, _name, _parameters, _env, **kwargs)
@@ -956,7 +956,7 @@ class SensingAction(InstantaneousAction):
         return res
 
     def clone(self):
-        new_params = {}
+        new_params = OrderedDict()
         for param_name, param in self._parameters.items():
             new_params[param_name] = param.type
         new_sensing_action = SensingAction(self._name, new_params, self._env)

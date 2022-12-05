@@ -23,8 +23,8 @@ import unified_planning.model.types
 import unified_planning.model.multi_agent
 from unified_planning.environment import get_env
 from unified_planning.model import *
-from unified_planning.engines import Engine, CompilationKind
-from typing import IO, Iterable, List, Union, Dict, Tuple, Optional
+from unified_planning.engines import Engine, CompilationKind, OptimalityGuarantee
+from typing import IO, Any, Iterable, List, Union, Dict, Tuple, Optional
 from fractions import Fraction
 
 
@@ -146,14 +146,14 @@ def Forall(
 
 
 def FluentExp(
-    fluent: "unified_planning.model.Fluent", params: Tuple[Expression, ...] = tuple()
+    fluent: "unified_planning.model.Fluent", params: Iterable[Expression] = tuple()
 ) -> FNode:
     """
     Creates an expression for the given `fluent` and `parameters`.
     Restriction: `parameters type` must be compatible with the `Fluent` :func:`signature <unified_planning.model.Fluent.signature>`
 
     :param fluent: The `Fluent` that will be set as the `payload` of this expression.
-    :param params: The expression acting as `parameters` for this `Fluent`; mainly the parameters will
+    :param params: The Iterable of expressions acting as `parameters` for this `Fluent`; mainly the parameters will
         be :class:`Objects <unified_planning.model.Object>` (when the `FluentExp` is grounded) or :func:`Action parameters <unified_planning.model.Action.parameters>` (when the `FluentExp` is lifted).
     :return: The created `Fluent` Expression.
     """
@@ -364,7 +364,7 @@ def BoolType() -> unified_planning.model.types.Type:
 
 
 def IntType(
-    lower_bound: int = None, upper_bound: int = None
+    lower_bound: Optional[int] = None, upper_bound: Optional[int] = None
 ) -> unified_planning.model.types.Type:
     """
     Returns the `integer` type defined in the global environment with the given `bounds`.
@@ -378,7 +378,8 @@ def IntType(
 
 
 def RealType(
-    lower_bound: Fraction = None, upper_bound: Fraction = None
+    lower_bound: Optional[Union[Fraction, int]] = None,
+    upper_bound: Optional[Union[Fraction, int]] = None,
 ) -> unified_planning.model.types.Type:
     """
     Returns the `real` type defined in the global environment with the given `bounds`.
@@ -409,7 +410,7 @@ def OneshotPlanner(
     *,
     name: Optional[str] = None,
     names: Optional[List[str]] = None,
-    params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+    params: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
     problem_kind: ProblemKind = ProblemKind(),
     optimality_guarantee: Optional[Union["up.engines.OptimalityGuarantee", str]] = None,
 ) -> Engine:
@@ -437,7 +438,7 @@ def PlanValidator(
     *,
     name: Optional[str] = None,
     names: Optional[List[str]] = None,
-    params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+    params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
     problem_kind: ProblemKind = ProblemKind(),
     plan_kind: Optional[Union["up.plans.PlanKind", str]] = None,
 ) -> Engine:
@@ -466,7 +467,7 @@ def Compiler(
     *,
     name: Optional[str] = None,
     names: Optional[List[str]] = None,
-    params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+    params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
     problem_kind: ProblemKind = ProblemKind(),
     compilation_kind: Optional[Union["up.engines.CompilationKind", str]] = None,
     compilation_kinds: Optional[List[Union["up.engines.CompilationKind", str]]] = None,
@@ -505,7 +506,7 @@ def Simulator(
     problem: "up.model.AbstractProblem",
     *,
     name: Optional[str] = None,
-    params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+    params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
 ) -> "up.engines.engine.Engine":
     """
     Returns a Simulator. There are two ways to call this method:
@@ -522,7 +523,7 @@ def Replanner(
     problem: "up.model.AbstractProblem",
     *,
     name: Optional[str] = None,
-    params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+    params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
     optimality_guarantee: Optional[Union["up.engines.OptimalityGuarantee", str]] = None,
 ) -> "up.engines.engine.Engine":
     """

@@ -3,8 +3,9 @@ name: CI
 on: push
 
 env:
-  up_tamer_commit: "5b6013aa3d56a8731147a442a831a81f73727d4d"
-  up_pyperplan_commit: "b4fb924320af9f1870db51d20a925aa913255527"
+  up_tamer_commit: "1b096e3be1155d6e7f32e0b7b905b831a846345f"
+  up_pyperplan_commit: "da7b33dbdb387944395bc21bbf671700cfa11b59"
+  up_fast_downward_commit: "78a8ffda7a31c30472487f03dede766da561a14f"
 
 jobs:
   basic-check:
@@ -13,6 +14,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
 
       - name: Install Python dependencies
         run: python3 -m pip install -r requirements.txt
@@ -44,6 +50,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
 
       - name: Install Python dependencies
         run: python3 -m pip install -r requirements.txt
@@ -110,6 +121,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
       - name: Install Python dependencies
         run: python3 -m pip install -r requirements.txt
 
@@ -159,6 +175,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
 
       - name: Install Python dependencies
         run: python3 -m pip install -r requirements.txt
@@ -214,6 +235,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+
       - name: Install Protobuf compiler
         run: |
           python3 -m pip install grpcio-tools==1.48.1
@@ -260,6 +286,16 @@ jobs:
 
       - name: Install up-pyperplan
         run: python3 -m pip install up-pyperplan/
+
+      - name: Checkout up-fast-downward
+        uses: actions/checkout@v2
+        with:
+          repository: aiplan4eu/up-fast-downward
+          path: up-fast-downward
+          ref: ${{env.up_fast_downward_commit}}
+
+      - name: Install up-fast-downward
+        run: python3 -m pip install up-fast-downward/
 
       - name: Install jupyter and ipython3
         run: sudo apt install jupyter; sudo apt install ipython3

@@ -29,7 +29,7 @@ from unified_planning.engines.mixins.oneshot_planner import OneshotPlannerMixin
 from unified_planning.engines.mixins.plan_validator import PlanValidatorMixin
 from unified_planning.engines.mixins.replanner import ReplannerMixin
 from unified_planning.engines.mixins.simulator import SimulatorMixin
-from typing import IO, Dict, Tuple, Optional, List, Union, Type, cast
+from typing import IO, Any, Dict, Tuple, Optional, List, Union, Type, cast
 from pathlib import PurePath
 
 
@@ -37,6 +37,7 @@ DEFAULT_ENGINES = {
     "fast-downward": ("up_fast_downward", "FastDownwardPDDLPlanner"),
     "fast-downward-opt": ("up_fast_downward", "FastDownwardOptimalPDDLPlanner"),
     "pyperplan": ("up_pyperplan.engine", "EngineImpl"),
+    "pyperplan-opt": ("up_pyperplan.engine", "OptEngineImpl"),
     "enhsp": ("up_enhsp.enhsp_planner", "ENHSPSatEngine"),
     "enhsp-opt": ("up_enhsp.enhsp_planner", "ENHSPOptEngine"),
     "tamer": ("up_tamer.engine", "EngineImpl"),
@@ -86,6 +87,7 @@ DEFAULT_ENGINES_PREFERENCE_LIST = [
     "fast-downward",
     "fast-downward-opt",
     "pyperplan",
+    "pyperplan-opt",
     "enhsp",
     "enhsp-opt",
     "tamer",
@@ -482,7 +484,7 @@ class Factory:
         engine_kind: str,
         name: Optional[str] = None,
         names: Optional[List[str]] = None,
-        params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+        params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
         problem_kind: ProblemKind = ProblemKind(),
         optimality_guarantee: Optional["OptimalityGuarantee"] = None,
         compilation_kind: Optional["CompilationKind"] = None,
@@ -544,13 +546,28 @@ class Factory:
             )
             credits = EngineClass.get_credits(**params)
             self._print_credits([credits])
-            if engine_kind in ["simulator", "replanner"]:
+            if engine_kind == "replanner":
+                assert problem is not None
+                if (
+                    problem.kind.has_quality_metrics()
+                    and optimality_guarantee == OptimalityGuarantee.SOLVED_OPTIMALLY
+                ):
+                    msg = f"The problem has no quality metrics but the engine is required to be optimal!"
+                    raise up.exceptions.UPUsageError(msg)
+                res = EngineClass(problem=problem, **params)
+            elif engine_kind == "simulator":
                 assert problem is not None
                 res = EngineClass(problem=problem, **params)
             elif engine_kind == "compiler":
                 res = EngineClass(**params)
                 assert isinstance(res, CompilerMixin)
-                res.default = compilation_kind
+                if compilation_kind is not None:
+                    res.default = compilation_kind
+            elif engine_kind == "oneshot_planner":
+                res = EngineClass(**params)
+                assert isinstance(res, OneshotPlannerMixin)
+                if optimality_guarantee == OptimalityGuarantee.SOLVED_OPTIMALLY:
+                    res.optimality_required = True
             else:
                 res = EngineClass(**params)
             if name is not None:
@@ -567,7 +584,7 @@ class Factory:
         *,
         name: Optional[str] = None,
         names: Optional[List[str]] = None,
-        params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+        params: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         problem_kind: ProblemKind = ProblemKind(),
         optimality_guarantee: Optional[Union["OptimalityGuarantee", str]] = None,
     ) -> "up.engines.engine.Engine":
@@ -593,7 +610,7 @@ class Factory:
         *,
         name: Optional[str] = None,
         names: Optional[List[str]] = None,
-        params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+        params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
         problem_kind: ProblemKind = ProblemKind(),
         plan_kind: Optional[Union["PlanKind", str]] = None,
     ) -> "up.engines.engine.Engine":
@@ -673,7 +690,7 @@ class Factory:
         problem: "up.model.AbstractProblem",
         *,
         name: Optional[str] = None,
-        params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+        params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
     ) -> "up.engines.engine.Engine":
         """
         Returns a Simulator. There are two ways to call this method:
@@ -692,7 +709,7 @@ class Factory:
         problem: "up.model.AbstractProblem",
         *,
         name: Optional[str] = None,
-        params: Union[Dict[str, str], List[Dict[str, str]]] = None,
+        params: Optional[Union[Dict[str, str], List[Dict[str, str]]]] = None,
         optimality_guarantee: Optional[Union["OptimalityGuarantee", str]] = None,
     ) -> "up.engines.engine.Engine":
         """

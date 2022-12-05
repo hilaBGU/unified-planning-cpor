@@ -14,6 +14,7 @@
 #
 
 
+from fractions import Fraction
 import unified_planning.model.types
 import unified_planning.environment
 import unified_planning.model.walkers as walkers
@@ -155,8 +156,12 @@ class TypeChecker(walkers.dag.DagWalker):
         if upper == float("inf"):
             upper = None
         if has_real:
+            assert lower is None or isinstance(lower, Fraction)
+            assert upper is None or isinstance(upper, Fraction)
             return self.env.type_manager.RealType(lower, upper)
         else:
+            assert lower is None or isinstance(lower, int)
+            assert upper is None or isinstance(upper, int)
             return self.env.type_manager.IntType(lower, upper)
 
     def walk_minus(self, expression, args):
@@ -270,7 +275,12 @@ class TypeChecker(walkers.dag.DagWalker):
         for x in args:
             if x is None:
                 return None
-            elif t.is_user_type() and t != x:
+            elif (
+                t.is_user_type()
+                and t != x
+                and not t.is_compatible(x)
+                and not x.is_compatible(t)
+            ):
                 return None
             elif (t.is_int_type() or t.is_real_type()) and not (
                 x.is_int_type() or x.is_real_type()

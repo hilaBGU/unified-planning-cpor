@@ -23,6 +23,7 @@ from unified_planning.test import skipIfNoOneshotPlannerSatisfiesOptimalityGuara
 from unified_planning.io import PDDLWriter, PDDLReader
 from unified_planning.test.examples import get_example_problems
 from unified_planning.model.problem_kind import full_numeric_kind
+from unified_planning.model.metrics import MinimizeSequentialPlanLength
 from unified_planning.model.types import _UserType
 from unified_planning.engines import PlanGenerationResultStatus
 
@@ -323,6 +324,14 @@ class TestPddlIO(TestCase):
         self.assertEqual(len(problem.actions), 5)
         self.assertEqual(len(list(problem.objects(problem.user_type("object")))), 13)
 
+        with open(domain_filename, "r", encoding="utf-8") as file:
+            domain_str = file.read()
+        with open(problem_filename, "r", encoding="utf-8") as file:
+            problem_str = file.read()
+
+        problem_2 = reader.parse_problem_string(domain_str, problem_str)
+        self.assertEqual(problem, problem_2)
+
     def test_counters_reader(self):
         reader = PDDLReader()
 
@@ -334,6 +343,14 @@ class TestPddlIO(TestCase):
         self.assertEqual(len(problem.fluents), 2)
         self.assertEqual(len(problem.actions), 2)
         self.assertEqual(len(list(problem.objects(problem.user_type("counter")))), 4)
+
+        with open(domain_filename, "r", encoding="utf-8") as file:
+            domain_str = file.read()
+        with open(problem_filename, "r", encoding="utf-8") as file:
+            problem_str = file.read()
+
+        problem_2 = reader.parse_problem_string(domain_str, problem_str)
+        self.assertEqual(problem, problem_2)
 
     def test_sailing_reader(self):
         reader = PDDLReader()
@@ -347,6 +364,14 @@ class TestPddlIO(TestCase):
         self.assertEqual(len(problem.actions), 8)
         self.assertEqual(len(list(problem.objects(problem.user_type("boat")))), 2)
         self.assertEqual(len(list(problem.objects(problem.user_type("person")))), 2)
+
+        with open(domain_filename, "r", encoding="utf-8") as file:
+            domain_str = file.read()
+        with open(problem_filename, "r", encoding="utf-8") as file:
+            problem_str = file.read()
+
+        problem_2 = reader.parse_problem_string(domain_str, problem_str)
+        self.assertEqual(problem, problem_2)
 
     def test_matchcellar_reader(self):
         reader = PDDLReader()
@@ -363,17 +388,15 @@ class TestPddlIO(TestCase):
         self.assertEqual(len(list(problem.objects(problem.user_type("match")))), 3)
         self.assertEqual(len(list(problem.objects(problem.user_type("fuse")))), 3)
 
-    def test_htn_transport_reader(self):
-        reader = PDDLReader()
+        with open(domain_filename, "r", encoding="utf-8") as file:
+            domain_str = file.read()
+        with open(problem_filename, "r", encoding="utf-8") as file:
+            problem_str = file.read()
 
-        domain_filename = os.path.join(
-            PDDL_DOMAINS_PATH, "htn-transport", "domain.hddl"
-        )
-        problem_filename = os.path.join(
-            PDDL_DOMAINS_PATH, "htn-transport", "problem.hddl"
-        )
-        problem = reader.parse_problem(domain_filename, problem_filename)
+        problem_2 = reader.parse_problem_string(domain_str, problem_str)
+        self.assertEqual(problem, problem_2)
 
+    def _test_htn_transport_reader(self, problem):
         assert isinstance(problem, up.model.htn.HierarchicalProblem)
         self.assertEqual(5, len(problem.fluents))
         self.assertEqual(4, len(problem.actions))
@@ -395,6 +418,39 @@ class TestPddlIO(TestCase):
         self.assertEqual(1, len(problem.method("m-drive-to").subtasks))
         self.assertEqual(2, len(problem.method("m-drive-to-via").subtasks))
         self.assertEqual(2, len(problem.task_network.subtasks))
+
+    def test_htn_transport_reader(self):
+        reader = PDDLReader()
+
+        domain_filename = os.path.join(
+            PDDL_DOMAINS_PATH, "htn-transport", "domain.hddl"
+        )
+        problem_filename = os.path.join(
+            PDDL_DOMAINS_PATH, "htn-transport", "problem.hddl"
+        )
+        problem = reader.parse_problem(domain_filename, problem_filename)
+        self._test_htn_transport_reader(problem)
+
+        with open(domain_filename, "r", encoding="utf-8") as file:
+            domain_str = file.read()
+        with open(problem_filename, "r", encoding="utf-8") as file:
+            problem_str = file.read()
+
+        problem_2 = reader.parse_problem_string(domain_str, problem_str)
+        self._test_htn_transport_reader(problem_2)
+
+    def test_hddl_parsing(self):
+        """Tests that all HDDL benchmarks are successfully parsed."""
+        hddl_dir = os.path.join(FILE_PATH, "hddl")
+        subfolders = [f.path for f in os.scandir(hddl_dir) if f.is_dir()]
+        for id, domain in enumerate(subfolders[:]):
+            print(f"=== [{id}] {domain} ===")
+            domain_filename = os.path.join(domain, "domain.hddl")
+            problem_filename = os.path.join(domain, "instance.1.pb.hddl")
+            reader = PDDLReader()
+            problem = reader.parse_problem(domain_filename, problem_filename)
+
+            assert isinstance(problem, up.model.htn.HierarchicalProblem)
 
     def test_examples_io(self):
         for example in self.problems.values():
@@ -429,11 +485,14 @@ class TestPddlIO(TestCase):
                     self.assertEqual(a, w.get_item_named(parsed_a.name))
                     for param, parsed_param in zip(a.parameters, parsed_a.parameters):
                         self.assertEqual(
-                            param.type, w.get_item_named(parsed_param.type.name)
+                            param.type,
+                            w.get_item_named(cast(_UserType, parsed_param.type).name),
                         )
-                    if isinstance(a, unified_planning.model.InstantaneousAction):
+                    if isinstance(a, InstantaneousAction):
+                        assert isinstance(parsed_a, InstantaneousAction)
                         self.assertEqual(len(a.effects), len(parsed_a.effects))
-                    elif isinstance(a, unified_planning.model.DurativeAction):
+                    elif isinstance(a, DurativeAction):
+                        assert isinstance(parsed_a, DurativeAction)
                         self.assertEqual(str(a.duration), str(parsed_a.duration))
                         for t, e in a.effects.items():
                             self.assertEqual(len(e), len(parsed_a.effects[t]))
@@ -564,6 +623,64 @@ class TestPddlIO(TestCase):
         self.assertEqual(len(list(problem.objects(problem.user_type("garage")))), 3)
         self.assertEqual(len(list(problem.objects(problem.user_type("road")))), 5)
 
+    def test_visit_precedence_reader(self):
+        reader = PDDLReader()
+
+        domain_filename = os.path.join(
+            PDDL_DOMAINS_PATH, "visit_precedence", "domain.pddl"
+        )
+        problem_filename = os.path.join(
+            PDDL_DOMAINS_PATH, "visit_precedence", "problem.pddl"
+        )
+        problem = reader.parse_problem(domain_filename, problem_filename)
+        em = problem.env.expression_manager
+
+        self.assertIsNotNone(problem)
+        self.assertEqual(len(problem.fluents), 2)
+        self.assertEqual(len(problem.actions), 1)
+        self.assertEqual(len(list(problem.objects(problem.user_type("location")))), 3)
+        self.assertEqual(len(problem.goals), 1)
+        self.assertEqual(len(problem.timed_goals), 0)
+        self.assertEqual(len(problem.timed_effects), 0)
+
+        visit = problem.action("visit")
+        assert isinstance(visit, DurativeAction)
+        to_visit = visit.parameter("to_visit")
+        location = problem.user_type("location")
+        precedes = problem.fluent("precedes")
+        visited = problem.fluent("visited")
+        p = Variable("p", location, problem.env)
+        cond_test = em.Forall(
+            em.And(
+                em.Or(em.Not(precedes(p, to_visit)), visited(p)),
+                em.Not(visited(to_visit)),
+            ),
+            p,
+        )
+        l = Variable("l_0", location, problem.env)
+        l2 = Variable("l2", location, problem.env)
+        goal_test = em.Forall(
+            em.And(
+                visited(l), em.Forall(em.Or(em.Not(precedes(l2, l)), visited(l2)), l2)
+            ),
+            l,
+        )
+        self.assertEqual(
+            visit.duration,
+            FixedDuration(em.Int(3)),
+        )
+        for interval, cond_list in visit.conditions.items():
+            self.assertEqual(interval, TimePointInterval(StartTiming()))
+            self.assertEqual(len(cond_list), 1)
+            self.assertEqual(cond_test, cond_list[0])
+        for timing, effect_list in visit.effects.items():
+            if timing == EndTiming():
+                self.assertEqual(len(effect_list), 1)
+            else:
+                self.assertTrue(False)
+        for g in problem.goals:
+            self.assertEqual(g, goal_test)
+
     def test_robot_fastener_reader(self):
         reader = PDDLReader()
 
@@ -592,13 +709,14 @@ class TestPddlIO(TestCase):
         self.assertEqual(len(problem.fluents), 1)
         self.assertEqual(len(problem.actions), 2)
         natural_disaster = problem.action("natural_disaster")
+        assert isinstance(natural_disaster, InstantaneousAction)
         # 9 effects because the forall is expanded in 3 * 3 possible locations instantiations
         self.assertEqual(len(natural_disaster.effects), 9)
         self.assertEqual(len(list(problem.objects(problem.user_type("location")))), 3)
 
     @skipIfNoOneshotPlannerForProblemKind(full_numeric_kind)
     @skipIfNoOneshotPlannerSatisfiesOptimalityGuarantee(
-        PlanGenerationResultStatus.SOLVED_OPTIMALLY
+        OptimalityGuarantee.SOLVED_OPTIMALLY
     )
     def test_reading_domain_only(self):
         reader = PDDLReader()
@@ -626,6 +744,7 @@ class TestPddlIO(TestCase):
                             value_fluent(object_j),
                         )
                     )
+            problem.add_quality_metric(MinimizeSequentialPlanLength())
             with OneshotPlanner(
                 problem_kind=problem.kind, optimality_guarantee="SOLVED_OPTIMALLY"
             ) as planner:

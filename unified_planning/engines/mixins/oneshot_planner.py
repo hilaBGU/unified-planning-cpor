@@ -16,7 +16,7 @@
 from warnings import warn
 import unified_planning as up
 from enum import Enum, auto
-from typing import IO, Optional, Callable, Union
+from typing import IO, Optional, Callable
 
 
 class OptimalityGuarantee(Enum):
@@ -26,6 +26,9 @@ class OptimalityGuarantee(Enum):
 
 class OneshotPlannerMixin:
     """Base class that must be extended by an :class:`~unified_planning.engines.Engine` that is also a `OneshotPlanner`."""
+
+    def __init__(self):
+        self.optimality_required = False
 
     @staticmethod
     def is_oneshot_planner() -> bool:
@@ -46,6 +49,9 @@ class OneshotPlannerMixin:
         callback: Optional[
             Callable[["up.engines.results.PlanGenerationResult"], None]
         ] = None,
+        heuristic: Optional[
+            Callable[["up.model.state.ROState"], Optional[float]]
+        ] = None,
         timeout: Optional[float] = None,
         output_stream: Optional[IO[str]] = None,
     ) -> "up.engines.results.PlanGenerationResult":
@@ -55,29 +61,37 @@ class OneshotPlannerMixin:
 
         :param problem: is the `AbstractProblem` to solve.
         :param callback: is a function used by the planner to give reports to the user during the problem resolution, defaults to `None`.
+        :param heuristic: is a function that given a state returns its heuristic value or `None` if the state is a dead-end, defaults to `None`.
         :param timeout: is the time in seconds that the planner has at max to solve the problem, defaults to `None`.
         :param output_stream: is a stream of strings where the planner writes his
             output (and also errors) while it is solving the problem; defaults to `None`.
         :return: the `PlanGenerationResult` created by the planner; a data structure containing the :class:`~unified_planning.plans.Plan` found
             and some additional information about it.
 
-        The only required parameter is `problem` but the planner should warn the user if `callback`, `timeout` or
-        `output_stream` are not `None` and the planner ignores them.
+        The only required parameter is `problem` but the planner should warn the user if `callback`,
+        `heuristic`, `timeout` or `output_stream` are not `None` and the planner ignores them.
         """
         assert isinstance(self, up.engines.engine.Engine)
-        if not self.skip_checks and not self.supports(problem.kind):
+        problem_kind = problem.kind
+        if not self.skip_checks and not self.supports(problem_kind):
             msg = f"{self.name} cannot solve this kind of problem!"
             if self.error_on_failed_checks:
                 raise up.exceptions.UPUsageError(msg)
             else:
                 warn(msg)
-        return self._solve(problem, callback, timeout, output_stream)
+        if not problem_kind.has_quality_metrics() and self.optimality_required:
+            msg = f"The problem has no quality metrics but the engine is required to be optimal!"
+            raise up.exceptions.UPUsageError(msg)
+        return self._solve(problem, callback, heuristic, timeout, output_stream)
 
     def _solve(
         self,
         problem: "up.model.AbstractProblem",
         callback: Optional[
             Callable[["up.engines.results.PlanGenerationResult"], None]
+        ] = None,
+        heuristic: Optional[
+            Callable[["up.model.state.ROState"], Optional[float]]
         ] = None,
         timeout: Optional[float] = None,
         output_stream: Optional[IO[str]] = None,

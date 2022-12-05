@@ -24,7 +24,7 @@ import unified_planning.model.types
 from unified_planning.model.operators import OperatorKind
 from unified_planning.exceptions import UPTypeError, UPExpressionDefinitionError
 from fractions import Fraction
-from typing import Iterable, List, Union, Dict, Tuple
+from typing import Optional, Iterable, List, Union, Dict, Tuple
 
 Expression = Union[
     "up.model.fnode.FNode",
@@ -42,6 +42,7 @@ BoolExpression = Union[
     "up.model.fnode.FNode",
     "up.model.fluent.Fluent",
     "up.model.parameter.Parameter",
+    "up.model.variable.Variable",
     bool,
 ]
 ConstantExpression = Union[
@@ -140,17 +141,19 @@ class ExpressionManager(object):
         self,
         node_type: OperatorKind,
         args: Iterable["up.model.fnode.FNode"],
-        payload: Union[
-            "up.model.fluent.Fluent",
-            "up.model.object.Object",
-            "up.model.parameter.Parameter",
-            "up.model.variable.Variable",
-            "up.model.timing.Timing",
-            "up.model.multi_agent.Agent",
-            bool,
-            int,
-            Fraction,
-            Tuple["up.model.variable.Variable", ...],
+        payload: Optional[
+            Union[
+                "up.model.fluent.Fluent",
+                "up.model.object.Object",
+                "up.model.parameter.Parameter",
+                "up.model.variable.Variable",
+                "up.model.timing.Timing",
+                "up.model.multi_agent.Agent",
+                bool,
+                int,
+                Fraction,
+                Tuple["up.model.variable.Variable", ...],
+            ]
         ] = None,
     ) -> "up.model.fnode.FNode":
         """
@@ -346,20 +349,24 @@ class ExpressionManager(object):
         )
 
     def FluentExp(
-        self, fluent: "up.model.fluent.Fluent", params: Tuple[Expression, ...] = tuple()
+        self, fluent: "up.model.fluent.Fluent", params: Iterable[Expression] = tuple()
     ) -> "up.model.fnode.FNode":
         """
         Creates an expression for the given `fluent` and `parameters`.
         Restriction: `parameters type` must be compatible with the `Fluent` :func:`signature <unified_planning.model.Fluent.signature>`
 
         :param fluent: The `Fluent` that will be set as the `payload` of this expression.
-        :param params: The expression acting as `parameters` for this `Fluent`; mainly the parameters will
-            be :class:`Objects <unified_planning.model.Object>` (when the `FluentExp` is grounded) or :func:`Action parameters <unified_planning.model.Action.parameters>` (when the `FluentExp` is lifted).
+        :param params: The Iterable of expressions acting as `parameters` for this `Fluent`; mainly the parameters will
+            be :class:`Objects <unified_planning.model.Object>` (when the `FluentExp` is grounded) or
+            :func:`Action parameters <unified_planning.model.Action.parameters>` (when the `FluentExp` is lifted).
         :return: The created `Fluent` Expression.
         """
-        assert fluent.arity == len(params)
         assert fluent.environment == self.env
-        params_exp = self.auto_promote(*params)
+        params_exp = self.auto_promote(params)
+        if fluent.arity != len(params_exp):
+            raise UPExpressionDefinitionError(
+                f"In FluentExp, fluent has arity {fluent.arity} but {len(params_exp)} parameters were passed."
+            )
         return self.create_node(
             node_type=OperatorKind.FLUENT_EXP, args=tuple(params_exp), payload=fluent
         )
