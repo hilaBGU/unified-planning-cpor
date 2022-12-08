@@ -62,8 +62,7 @@ class CPORImpl(MetaEngine, mixins.OneshotPlannerMixin):
         supported_kind.set_effects_kind("CONDITIONAL_EFFECTS")
         supported_kind.set_typing('FLAT_TYPING')
         supported_kind.set_typing('HIERARCHICAL_TYPING')
-        final_supported_kind = supported_kind.intersection(engine.supported_kind())
-        final_supported_kind.set_quality_metrics("OVERSUBSCRIPTION")
+        final_supported_kind = supported_kind.union(engine.supported_kind()) #maybe shuoldnt be union but check if the planner is basic and than add the contingent charectaristics
         return final_supported_kind
 
     @staticmethod
@@ -286,7 +285,7 @@ problem2 = reader.parse_problem(
     "../unified_planning/test/pddl/localize/problem.pddl",
 )
 
-with env.factory.OneshotPlanner(name='CPORPlanning[pyperplan]') as planner:
+with env.factory.OneshotPlanner(name='CPORPlanning[enhsp]') as planner:
     result = planner.solve(problem1)
     if result.status == PlanGenerationResultStatus.SOLVED_SATISFICING:
         print(f'{planner.name} found a valid plan!')
